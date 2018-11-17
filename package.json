@@ -1,0 +1,16 @@
+{
+  "name": "lines",
+  "version": "1.0.0",
+  "description": "",
+  "main": "sketch.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "canvas-sketch": "^0.1.0",
+    "canvas-sketch-util": "^1.5.0"
+  }
+}
