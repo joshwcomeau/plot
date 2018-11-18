@@ -11,6 +11,9 @@
   "license": "ISC",
   "dependencies": {
     "canvas-sketch": "^0.1.0",
-    "canvas-sketch-util": "^1.5.0"
+    "canvas-sketch-util": "^1.5.0",
+    "delaunay-triangulate": "^1.1.6",
+    "new-array": "^1.0.0",
+    "voronoi": "^1.0.0"
   }
 }
