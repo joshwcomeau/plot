@@ -1,13 +1,10 @@
 const fs = require('fs');
-
 const program = require('commander');
 
 const { parseImage } = require('../helpers/image.helpers');
 
 const fileExtensionRegex = /(.jpg|.jpeg|.png|.gif)$/i;
 
-// if we invoke this program through the command line, use the command line arg
-// and run it
 program.parse(process.argv);
 
 const inputPath = program.args[0];
@@ -19,6 +16,9 @@ if (!inputPath) {
 
 parseImage(inputPath)
   .then(image => {
+    // We want to produce a JS file that exports a default object containing
+    // all the data. This is mildly preferable to JSON, because it's easier to
+    // work with.
     const stringifiedOutput = `export default ${JSON.stringify(
       image,
       null,
