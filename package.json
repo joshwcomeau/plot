@@ -4,12 +4,14 @@
   "description": "",
   "main": "sketch.js",
   "scripts": {
-    "start": "canvas-sketch plot.js --hot"
+    "start": "canvas-sketch plot.js --hot",
+    "parse-image": "npx babel-node scripts/parse-image.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@babel/node": "^7.0.0",
     "canvas-sketch": "^0.1.0",
     "canvas-sketch-util": "^1.5.0",
     "color": "^3.1.0",
@@ -18,5 +20,9 @@
     "image-parser": "^1.2.6",
     "new-array": "^1.0.0",
     "voronoi": "^1.0.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.1.6",
+    "@babel/preset-env": "^7.1.6"
   }
 }
