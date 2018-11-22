@@ -16,6 +16,26 @@ export const clamp = (val, min = 0, max = 1) =>
 export const roundTo = (number, places = 0) =>
   Math.round(number * 10 ** places) / 10 ** places;
 
+/**
+ * I often find myself needing to normalize values.
+ * Say I have a value, 15, out of a range between 0 and 30.
+ * I might want to know what that is on a scale of 1-5 instead.
+ */
+export const normalize = (
+  number,
+  currentScaleMin,
+  currentScaleMax,
+  newScaleMin,
+  newScaleMax
+) => {
+  // FIrst, normalize the value between 0 and 1.
+  const standardNormalization =
+    (number - currentScaleMin) / (currentScaleMax - currentScaleMin);
+
+  // Next, transpose that value to our desired scale.
+  return (newScaleMax - newScaleMin) * standardNormalization + newScaleMin;
+};
+
 export const debounce = (callback, wait, timeoutId = null) => (...args) => {
   window.clearTimeout(timeoutId);
 
@@ -152,3 +172,4 @@ export const getDistanceBetweenPoints = (p1, p2) => {
 };
 
 export const convertRadiansToDegrees = angle => (angle * 180) / Math.PI;
+export const convertDegreesToRadians = angle => (angle * Math.PI) / 180;
