@@ -3,6 +3,7 @@ import { renderPolylines } from 'canvas-sketch-util/penplot';
 import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 
 import { clipLinesWithMargin } from './helpers/poly-line.helpers.js';
+import { parseImage } from './helpers/image.helpers.js';
 import {
   normalize,
   random,
@@ -11,7 +12,8 @@ import {
   convertDegreesToRadians,
 } from './utils';
 
-import imageHSLData from './data/images/mona-lisa.js';
+// import imageHSLData from './data/images/mona-lisa.js';
+// import imagePath from './data/images/mona-lisa.png';
 
 const settings = {
   dimensions: [8.5, 11],
@@ -99,55 +101,58 @@ const sketch = ({ width, height }) => {
   const availableWidth = width - MARGIN * 2;
   const availableHeight = height - MARGIN * 2;
 
-  const numOfRows = imageHSLData.length;
-  const numOfCols = imageHSLData[0].length;
-
-  const cellOuterWidth = availableWidth / numOfCols;
-  const cellOuterHeight = availableHeight / numOfRows;
-
-  // We want a bit of spacing between each cell.
-  const CELL_INNER_MARGIN = cellOuterWidth * 0.1;
-
-  const cellInnerWidth = cellOuterWidth - CELL_INNER_MARGIN * 2;
-  const cellInnerHeight = cellOuterHeight - CELL_INNER_MARGIN * 2;
-
-  // We want the image provided to be the same aspect ratio as our available
-  // space. If it's not, we'll wind up with rectangles instead of squares.
-  if (cellOuterWidth !== cellOuterHeight) {
-    console.warn(
-      'Uh oh - looks like the image provided is not at the same 3:4 ratio as the canvas.'
-    );
-  }
-
   const useHueAsAngle = true;
 
-  return props => {
-    let lines = [];
+  return parseImage('./data/images/mona-lisa.png').then(imageHSLData => {
+    console.log(imageHSLData);
+    const numOfRows = imageHSLData.length;
+    const numOfCols = imageHSLData[0].length;
 
-    imageHSLData.forEach((row, rowIndex) => {
-      row.forEach((cell, colIndex) => {
-        const x = MARGIN + CELL_INNER_MARGIN + colIndex * cellOuterWidth;
-        const y = MARGIN + CELL_INNER_MARGIN + rowIndex * cellOuterHeight;
+    const cellOuterWidth = availableWidth / numOfCols;
+    const cellOuterHeight = availableHeight / numOfRows;
 
-        const angle = useHueAsAngle ? cell.h : 45;
-        const initialOffset = -Math.random();
+    // We want a bit of spacing between each cell.
+    const CELL_INNER_MARGIN = cellOuterWidth * 0.1;
 
-        const cellLines = getLinesForCell({
-          x,
-          y,
-          width: cellInnerWidth,
-          height: cellInnerHeight,
-          lightness: cell.l,
-          angle,
-          initialOffset,
+    const cellInnerWidth = cellOuterWidth - CELL_INNER_MARGIN * 2;
+    const cellInnerHeight = cellOuterHeight - CELL_INNER_MARGIN * 2;
+
+    // We want the image provided to be the same aspect ratio as our available
+    // space. If it's not, we'll wind up with rectangles instead of squares.
+    if (cellOuterWidth !== cellOuterHeight) {
+      console.warn(
+        'Uh oh - looks like the image provided is not at the same 3:4 ratio as the canvas.'
+      );
+    }
+
+    return props => {
+      let lines = [];
+
+      imageHSLData.forEach((row, rowIndex) => {
+        row.forEach((cell, colIndex) => {
+          const x = MARGIN + CELL_INNER_MARGIN + colIndex * cellOuterWidth;
+          const y = MARGIN + CELL_INNER_MARGIN + rowIndex * cellOuterHeight;
+
+          const angle = useHueAsAngle ? cell.h : 45;
+          const initialOffset = -Math.random();
+
+          const cellLines = getLinesForCell({
+            x,
+            y,
+            width: cellInnerWidth,
+            height: cellInnerHeight,
+            lightness: cell.l,
+            angle,
+            initialOffset,
+          });
+
+          lines.push(...cellLines);
         });
-
-        lines.push(...cellLines);
       });
-    });
 
-    return renderPolylines(lines, props);
-  };
+      return renderPolylines(lines, props);
+    };
+  });
 };
 
 canvasSketch(sketch, settings);
