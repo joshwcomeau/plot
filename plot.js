@@ -11,7 +11,7 @@ import {
   convertDegreesToRadians,
 } from './utils';
 
-import imageHSLData from './data/images/mic';
+import imageHSLData from './data/images/mona-lisa.js';
 
 const settings = {
   dimensions: [8.5, 11],
@@ -19,9 +19,19 @@ const settings = {
   pixelsPerInch: 300,
   scaleToView: true,
   units: 'in',
+  // animate: true,
+  // duration: 1,
 };
 
-const getLinesForCell = (x, y, width, height, lightness, angle = 45) => {
+const getLinesForCell = ({
+  x,
+  y,
+  width,
+  height,
+  lightness,
+  angle = 45,
+  initialOffset = 0,
+}) => {
   const angleRadians = convertDegreesToRadians(angle);
   // For now, and only for now, I'm gonna assume we want 10 lines per box.
   // In reality, I'll need a `while` loop to work out when the lines have gone
@@ -34,10 +44,9 @@ const getLinesForCell = (x, y, width, height, lightness, angle = 45) => {
   // Because our unit is inches, a reasonable width/height is ~0.2 inches.
   // So, let's assume that for absolute black, we want 0.001 space between the
   // lines. For absolute white, make it 0.05.
-  const minSpacing = 0.0075;
+  const minSpacing = 0.02;
   const maxSpacing = 0.1;
   const spacing = normalize(lightness, 0, 100, minSpacing, maxSpacing);
-  const initialOffset = -Math.random();
 
   let lines = range(numOfLines).map(i => {
     // Our line will start from x: 0, with the `y` depending on index and
@@ -69,13 +78,13 @@ const getLinesForCell = (x, y, width, height, lightness, angle = 45) => {
   const box = [x, y, x + width, y + height];
   lines = clipPolylinesToBox(lines, box);
 
-  lines.push([
-    [x, y],
-    [x + width, y],
-    [x + width, y + height],
-    [x, y + height],
-    [x, y],
-  ]);
+  // lines.push([
+  //   [x, y],
+  //   [x + width, y],
+  //   [x + width, y + height],
+  //   [x, y + height],
+  //   [x, y],
+  // ]);
 
   return lines;
 };
@@ -110,6 +119,8 @@ const sketch = ({ width, height }) => {
     );
   }
 
+  const useHueAsAngle = true;
+
   return props => {
     let lines = [];
 
@@ -118,20 +129,22 @@ const sketch = ({ width, height }) => {
         const x = MARGIN + CELL_INNER_MARGIN + colIndex * cellOuterWidth;
         const y = MARGIN + CELL_INNER_MARGIN + rowIndex * cellOuterHeight;
 
-        const cellLines = getLinesForCell(
+        const angle = useHueAsAngle ? cell.h : 45;
+        const initialOffset = -Math.random();
+
+        const cellLines = getLinesForCell({
           x,
           y,
-          cellInnerWidth,
-          cellInnerHeight,
-          cell.l,
-          cell.h
-        );
+          width: cellInnerWidth,
+          height: cellInnerHeight,
+          lightness: cell.l,
+          angle,
+          initialOffset,
+        });
 
         lines.push(...cellLines);
       });
     });
-
-    console.log(lines[0], lines[10], lines[20]);
 
     return renderPolylines(lines, props);
   };
