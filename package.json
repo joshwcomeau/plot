@@ -4,7 +4,7 @@
   "description": "",
   "main": "sketch.js",
   "scripts": {
-    "start": "canvas-sketch src/index.js --hot"
+    "start": "canvas-sketch src/index.js --hot --output=./out"
   },
   "keywords": [],
   "author": "",
