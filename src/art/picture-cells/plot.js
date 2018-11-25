@@ -5,16 +5,10 @@ import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 
 import { parseImage } from '../../helpers/image.helpers.js';
 
-const IMAGE_FILENAME = 'mona-lisa.png';
+import settings from '../settings';
 
-const settings = {
-  dimensions: [8.5, 11],
-  orientation: 'portrait',
-  pixelsPerInch: 300,
-  scaleToView: true,
-  units: 'in',
-  // animate: true,
-};
+const IMAGE_FILENAME = 'mona-lisa.png';
+const MARGIN = 0.5;
 
 export default plotFn => {
   const sketch = ({ width, height }) => {
@@ -22,8 +16,6 @@ export default plotFn => {
     // We have a 2D array of image pixel data which is 26x34.
     // We could normalize it, so that we split the available 21cm into 26
     // divisions, but we also have to factor margins in.
-    const MARGIN = 0.5;
-
     const availableWidth = width - MARGIN * 2;
     const availableHeight = height - MARGIN * 2;
 
