@@ -5,4 +5,4 @@
  * called is the current artwork being displayed. Change which file is imported
  * to change which variant is drawn:
  */
-import './1.angled-lines';
+import './2.neighbors';

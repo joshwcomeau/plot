@@ -27,5 +27,8 @@
     "@babel/core": "^7.1.6",
     "@babel/preset-env": "^7.1.6",
     "canvas-sketch-cli": "^1.1.9"
+  },
+  "resolutions": {
+    "babel-core": "7.0.0-bridge.0"
   }
 }

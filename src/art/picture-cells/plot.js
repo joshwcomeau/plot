@@ -1,9 +1,12 @@
 //
 import canvasSketch from 'canvas-sketch';
 import { renderPolylines } from 'canvas-sketch-util/penplot';
+import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 
 import { clipLinesWithMargin } from '../../helpers/poly-line.helpers.js';
 import { parseImage } from '../../helpers/image.helpers.js';
+
+const IMAGE_FILENAME = 'mona-lisa-large.png';
 
 const settings = {
   dimensions: [8.5, 11],
@@ -11,6 +14,7 @@ const settings = {
   pixelsPerInch: 300,
   scaleToView: true,
   units: 'in',
+  // animate: true,
 };
 
 export default plotFn => {
@@ -26,50 +30,58 @@ export default plotFn => {
 
     const useHueAsAngle = true;
 
-    return parseImage('/src/data/images/mona-lisa.png').then(imageHSLData => {
-      const numOfRows = imageHSLData.length;
-      const numOfCols = imageHSLData[0].length;
+    return parseImage(`/src/data/images/${IMAGE_FILENAME}`).then(
+      imageHSLData => {
+        const numOfRows = imageHSLData.length;
+        const numOfCols = imageHSLData[0].length;
 
-      const cellOuterWidth = availableWidth / numOfCols;
-      const cellOuterHeight = availableHeight / numOfRows;
+        const cellOuterWidth = availableWidth / numOfCols;
+        const cellOuterHeight = availableHeight / numOfRows;
 
-      // We want a bit of spacing between each cell.
-      const CELL_INNER_MARGIN = cellOuterWidth * 0.1;
+        // We want a bit of spacing between each cell.
+        const CELL_INNER_MARGIN = cellOuterWidth * 0.1;
 
-      const cellInnerWidth = cellOuterWidth - CELL_INNER_MARGIN * 2;
-      const cellInnerHeight = cellOuterHeight - CELL_INNER_MARGIN * 2;
+        const cellInnerWidth = cellOuterWidth - CELL_INNER_MARGIN * 2;
+        const cellInnerHeight = cellOuterHeight - CELL_INNER_MARGIN * 2;
 
-      // We want the image provided to be the same aspect ratio as our available
-      // space. If it's not, we'll wind up with rectangles instead of squares.
-      if (cellOuterWidth !== cellOuterHeight) {
-        console.warn(
-          'Uh oh - looks like the image provided is not at the same 3:4 ratio as the canvas.'
-        );
-      }
+        // We want the image provided to be the same aspect ratio as our available
+        // space. If it's not, we'll wind up with rectangles instead of squares.
+        if (cellOuterWidth !== cellOuterHeight) {
+          console.warn(
+            'Uh oh - looks like the image provided is not at the same 3:4 ratio as the canvas.'
+          );
+        }
 
-      return props => {
-        let lines = [];
+        return props => {
+          let lines = [];
 
-        imageHSLData.forEach((row, rowIndex) => {
-          row.forEach((cell, colIndex) => {
-            const x = MARGIN + CELL_INNER_MARGIN + colIndex * cellOuterWidth;
-            const y = MARGIN + CELL_INNER_MARGIN + rowIndex * cellOuterHeight;
+          imageHSLData.forEach((row, rowIndex) => {
+            row.forEach((cell, colIndex) => {
+              const x = MARGIN + CELL_INNER_MARGIN + colIndex * cellOuterWidth;
+              const y = MARGIN + CELL_INNER_MARGIN + rowIndex * cellOuterHeight;
 
-            const cellLines = plotFn({
-              x,
-              y,
-              width: cellInnerWidth,
-              height: cellInnerHeight,
-              cell,
+              const cellLines = plotFn({
+                x,
+                y,
+                width: cellInnerWidth,
+                height: cellInnerHeight,
+                cell,
+                rowIndex,
+                colIndex,
+                data: imageHSLData,
+              });
+
+              lines.push(...cellLines);
             });
-
-            lines.push(...cellLines);
           });
-        });
 
-        return renderPolylines(lines, props);
-      };
-    });
+          const box = [MARGIN, MARGIN, width - MARGIN, height - MARGIN];
+          lines = clipPolylinesToBox(lines, box);
+
+          return renderPolylines(lines, props);
+        };
+      }
+    );
   };
 
   canvasSketch(sketch, settings);
