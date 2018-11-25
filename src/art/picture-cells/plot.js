@@ -3,10 +3,9 @@ import canvasSketch from 'canvas-sketch';
 import { renderPolylines } from 'canvas-sketch-util/penplot';
 import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 
-import { clipLinesWithMargin } from '../../helpers/poly-line.helpers.js';
 import { parseImage } from '../../helpers/image.helpers.js';
 
-const IMAGE_FILENAME = 'mona-lisa-large.png';
+const IMAGE_FILENAME = 'mona-lisa.png';
 
 const settings = {
   dimensions: [8.5, 11],
