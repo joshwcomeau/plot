@@ -21,6 +21,7 @@
     "new-array": "^1.0.0",
     "pngjs3": "^4.0.0",
     "voronoi": "^1.0.0",
+    "waveform-data": "^2.1.2",
     "zlib": "^1.0.5"
   },
   "devDependencies": {
