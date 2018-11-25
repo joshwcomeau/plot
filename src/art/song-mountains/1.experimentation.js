@@ -4,6 +4,7 @@ import { renderPolylines } from 'canvas-sketch-util/penplot';
 import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 
 import { loadAudioData } from '../../helpers/audio.helpers';
+import { normalize } from '../../utils';
 
 import settings from '../settings';
 
@@ -21,6 +22,7 @@ const sketch = async ({ width, height, context }) => {
 
     // return renderPolylines(lines, props);
     const interpolateHeight = total_height => {
+      // Amplitude can vary from -128 to +128.
       const amplitude = 256;
       return size => total_height - ((size + 128) * total_height) / amplitude;
     };
@@ -31,11 +33,13 @@ const sketch = async ({ width, height, context }) => {
     ctx.beginPath();
 
     // from 0 to 100
-    const numOfPoints = waveform.max.length;
-    waveform.min.forEach((val, x) => {
+    const sliceStart = 0;
+    const sliceEnd = 100;
+    const numOfPoints = sliceEnd - sliceStart;
+    waveform.min.slice(sliceStart, sliceEnd).forEach((val, x) => {
       const actualX = (x / numOfPoints) * width;
-      // console.log(actualX);
-      ctx.lineTo(actualX + MARGIN, y(val) + MARGIN);
+      const actualY = normalize(val, -128, 128, 0, height);
+      ctx.lineTo(actualX + MARGIN, actualY);
     });
 
     // // then looping back from 100 to 0
@@ -45,7 +49,7 @@ const sketch = async ({ width, height, context }) => {
     //   ctx.lineTo(x, y(val) + 0.5);
     // });
 
-    ctx.closePath();
+    // ctx.closePath();
     ctx.lineWidth = 0.01;
     ctx.stroke();
     // ctx.fillStyle = '#FF0000';
