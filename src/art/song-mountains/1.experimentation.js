@@ -17,20 +17,7 @@ const sketch = async ({ width, height, context }) => {
   return props => {
     let lines = [];
 
-    // const box = [MARGIN, MARGIN, width - MARGIN, height - MARGIN];
-    // lines = clipPolylinesToBox(lines, box);
-
-    // return renderPolylines(lines, props);
-    const interpolateHeight = total_height => {
-      // Amplitude can vary from -128 to +128.
-      const amplitude = 256;
-      return size => total_height - ((size + 128) * total_height) / amplitude;
-    };
-
-    const y = interpolateHeight(height);
-
-    const ctx = context;
-    ctx.beginPath();
+    const initialPosition = [0, height / 2];
 
     // from 0 to 100
     const sliceStart = 0;
@@ -39,23 +26,19 @@ const sketch = async ({ width, height, context }) => {
     waveform.min.slice(sliceStart, sliceEnd).forEach((val, x) => {
       const actualX = (x / numOfPoints) * width;
       const actualY = normalize(val, -128, 128, 0, height);
-      ctx.lineTo(actualX + MARGIN, actualY);
+
+      const lastLine = lines[lines.length - 1];
+      const lastPosition = lastLine ? lastLine[1] : initialPosition;
+
+      lines.push([lastPosition, [actualX, actualY]]);
     });
 
-    // // then looping back from 100 to 0
-    // waveform.max.reverse().forEach((val, x) => {
-    //   x = waveform.offset_length - x + 0.5;
-    //   console.log(x);
-    //   ctx.lineTo(x, y(val) + 0.5);
-    // });
+    console.log(lines);
 
-    // ctx.closePath();
-    ctx.lineWidth = 0.01;
-    ctx.stroke();
-    // ctx.fillStyle = '#FF0000';
-    // ctx.fill();
+    const box = [MARGIN, MARGIN, width - MARGIN, height - MARGIN];
+    lines = clipPolylinesToBox(lines, box);
 
-    return ctx;
+    return renderPolylines(lines, props);
   };
 };
 
