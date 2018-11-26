@@ -15,3 +15,4 @@ I should probably create a Node script for this, that includes instructions for 
 ### Ideas
 
 - Maybe the lines should point towards darker cells? Imagine if each cell considered its 8 siblings and pointed towards the darkest of them. This is like "shitty edge-detection"
+- Pen Phase - Come up with a somewhat simple shape. Add 10-20 rows. Each row features two (or more) copies of the shape, slightly offset. Piano phase, but for pen.
