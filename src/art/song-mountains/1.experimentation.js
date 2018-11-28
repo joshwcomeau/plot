@@ -5,12 +5,23 @@ import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 import chunk from 'lodash/chunk';
 
 import { loadAudioData } from '../../helpers/audio.helpers';
+import { clipLinesWithMargin } from '../../helpers/line.helpers';
 import { normalize, range } from '../../utils';
 
 import settings from '../settings';
 
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
+
+const getSampleCoordinates = ({
+  sampleIndex,
+  amplitude,
+  distanceBetweenSamples,
+  rowHeight,
+}) => [
+  sampleIndex * distanceBetweenSamples + MARGIN,
+  normalize(amplitude, -128, 128, 0, rowHeight),
+];
 
 const getSegmentsForSample = ({
   amplitude,
@@ -21,33 +32,65 @@ const getSegmentsForSample = ({
   pageHeight,
   rowHeight,
   pointsPerSample,
+  pointWidth,
 }) => {
   const distanceBetweenSamples = pageWidth / numOfSamples;
-  const toX = sampleIndex * distanceBetweenSamples + MARGIN;
-  const toY = normalize(amplitude, -128, 128, 0, rowHeight);
-  const to = [toX, toY];
 
-  const previousSample = [
-    (sampleIndex - 1) * distanceBetweenSamples + MARGIN,
-    normalize(previousAmplitude, -128, 128, 0, rowHeight),
-  ];
+  const sample = getSampleCoordinates({
+    sampleIndex,
+    amplitude,
+    distanceBetweenSamples,
+    rowHeight,
+  });
+
+  const previousSample = getSampleCoordinates({
+    sampleIndex: sampleIndex - 1,
+    amplitude: previousAmplitude,
+    distanceBetweenSamples,
+    rowHeight,
+  });
+
+  // We have two dots in space.
+  // We want to get the angle between them
+  const xDistance = distanceBetweenSamples;
+  const yDistance = Math.abs(previousAmplitude - amplitude);
+
+  const angle = Math.atan2(yDistance, xDistance);
 
   const segmentsForSample = [];
   range(pointsPerSample).forEach(i => {
     const percentageThroughSample = i / pointsPerSample;
 
+    const x1 =
+      previousSample[0] + percentageThroughSample * distanceBetweenSamples;
+    const y1 = Math.tan(angle) / (x1 - previousSample[1]);
+
+    // if (i === 0) {
+    //   console.log(Math.tan(angle), x1, previousSample[0]);
+    // }
+
+    const x2 = x1 + pointWidth * Math.cos(angle);
+    const y2 = y1 + pointWidth * Math.sin(angle);
+
+    segmentsForSample.push([[x1, y1], [x2, y2]]);
+
+    // We want our line to be of length `pointWidth`.
+    // That's our hypothenuse length.
+    // We worked out the angle earlier, in radians, and now we can use that
+    // to work out the X and Y values.
+
     const from =
       i === 0
         ? previousSample
-        : segmentsForSample[segmentsForSample.length - 1];
+        : segmentsForSample[segmentsForSample.length - 1][1];
 
-    const deltaX = to[0] - from[0];
-    const deltaY = to[1] - from[1];
+    const deltaX = sample[0] - from[0];
+    const deltaY = sample[1] - from[1];
 
-    const x = to[0] + deltaX * percentageThroughSample;
-    const y = to[1] + deltaY * percentageThroughSample;
+    const x = sample[0] + deltaX * percentageThroughSample;
+    const y = sample[1] + deltaY * percentageThroughSample;
 
-    segmentsForSample.push([[...from], [x, y]]);
+    // segmentsForSample.push([[...from], [x, y]]);
   });
 
   return segmentsForSample;
@@ -58,11 +101,11 @@ const sketch = async ({ width, height, context }) => {
 
   return props => {
     // from 0 to 100
-    const samplesPerRow = 100;
+    const samplesPerRow = 20;
     const distanceBetweenRows = 0.5;
     const numRows = 20;
     const pointWidth = 0.005;
-    const pointGap = 0.015;
+    const pointGap = pointWidth * 2;
     const pointsPerSample = Math.floor(
       width / samplesPerRow / (pointWidth + pointGap)
     );
@@ -87,7 +130,21 @@ const sketch = async ({ width, height, context }) => {
     // be occluded by earlier lines. If this line happens to be behind an
     // earlier row's line, we want to omit it.
 
-    chunk(waveform.min, samplesPerRow)
+    let firstNonZeroValueIndex;
+    for (let i = 0; i < 200; i++) {
+      if (waveform.min[i] !== 0) {
+        firstNonZeroValueIndex = i;
+        break;
+      }
+    }
+
+    if (typeof firstNonZeroValueIndex !== 'number') {
+      throw new Error('Sound is completely silent!');
+    }
+
+    const allSamples = waveform.min.slice(firstNonZeroValueIndex);
+
+    chunk(allSamples.slice(100), samplesPerRow)
       .slice(0, numRows)
       .forEach((samples, chunkIndex) => {
         // Each row is `distanceBetweenRows` apart.
@@ -119,13 +176,14 @@ const sketch = async ({ width, height, context }) => {
             pageHeight: height,
             rowHeight,
             pointsPerSample,
+            pointWidth,
+            pointGap,
           });
 
           // Each row has assumed its Y values are relative to the row.
           // Transform them to be relative to the document
           const firstRowY = height * 0.65;
           segmentsForSample = segmentsForSample.map(segment => {
-            // TODO: use rowOffset
             segment[0][1] += firstRowY + rowOffset;
             segment[1][1] += firstRowY + rowOffset;
             return segment;
@@ -137,8 +195,7 @@ const sketch = async ({ width, height, context }) => {
         lines.push(...segmentsForChunk);
       });
 
-    const box = [MARGIN, MARGIN, width - MARGIN, height - MARGIN];
-    lines = clipPolylinesToBox(lines, box);
+    lines = clipLinesWithMargin({ margin: MARGIN, width, height, lines });
 
     return renderPolylines(lines, props);
   };
