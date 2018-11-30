@@ -5,7 +5,10 @@ import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
 import chunk from 'lodash/chunk';
 
 import { loadAudioData } from '../../helpers/audio.helpers';
-import { clipLinesWithMargin } from '../../helpers/line.helpers';
+import {
+  createDashedLine,
+  clipLinesWithMargin,
+} from '../../helpers/line.helpers';
 import { normalize, range } from '../../utils';
 
 import settings from '../settings';
@@ -36,13 +39,6 @@ const getSegmentsForSample = ({
 }) => {
   const distanceBetweenSamples = pageWidth / numOfSamples;
 
-  const sample = getSampleCoordinates({
-    sampleIndex,
-    amplitude,
-    distanceBetweenSamples,
-    rowHeight,
-  });
-
   const previousSample = getSampleCoordinates({
     sampleIndex: sampleIndex - 1,
     amplitude: previousAmplitude,
@@ -50,51 +46,19 @@ const getSegmentsForSample = ({
     rowHeight,
   });
 
-  // We have two dots in space.
-  // We want to get the angle between them
-  const xDistance = distanceBetweenSamples;
-  const yDistance = Math.abs(previousAmplitude - amplitude);
-
-  const angle = Math.atan2(yDistance, xDistance);
-
-  const segmentsForSample = [];
-  range(pointsPerSample).forEach(i => {
-    const percentageThroughSample = i / pointsPerSample;
-
-    const x1 =
-      previousSample[0] + percentageThroughSample * distanceBetweenSamples;
-    const y1 = Math.tan(angle) / (x1 - previousSample[1]);
-
-    console.log(y1, Math.tan(angle), x1, previousSample[1]);
-    // if (i === 0) {
-    //   console.log(Math.tan(angle), x1, previousSample[0]);
-    // }
-
-    const x2 = x1 + pointWidth * Math.cos(angle);
-    const y2 = y1 + pointWidth * Math.sin(angle);
-
-    segmentsForSample.push([[x1, y1], [x2, y2]]);
-
-    // We want our line to be of length `pointWidth`.
-    // That's our hypothenuse length.
-    // We worked out the angle earlier, in radians, and now we can use that
-    // to work out the X and Y values.
-
-    const from =
-      i === 0
-        ? previousSample
-        : segmentsForSample[segmentsForSample.length - 1][1];
-
-    const deltaX = sample[0] - from[0];
-    const deltaY = sample[1] - from[1];
-
-    const x = sample[0] + deltaX * percentageThroughSample;
-    const y = sample[1] + deltaY * percentageThroughSample;
-
-    // segmentsForSample.push([[...from], [x, y]]);
+  const sample = getSampleCoordinates({
+    sampleIndex,
+    amplitude,
+    distanceBetweenSamples,
+    rowHeight,
   });
 
-  return segmentsForSample;
+  return createDashedLine({
+    p1: previousSample,
+    p2: sample,
+    numOfDashes: 100,
+    dashLength: 0.01,
+  });
 };
 
 const sketch = async ({ width, height, context }) => {
