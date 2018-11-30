@@ -70,3 +70,18 @@ export const createDashedLine = ({ p1, p2, numOfDashes, dashLength }) => {
     return [pointStart, pointEnd];
   });
 };
+
+export const getSlopeAndInterceptForLine = ([[x1, y1], [x2, y2]]) => {
+  const deltaX = x2 - x1;
+  const deltaY = y2 - y1;
+
+  const slope = deltaY / deltaX;
+  const intercept = y1 - slope * x1;
+
+  return { slope, intercept };
+};
+
+export const findIntersectionBetweenTwoLines = (line1, line2) => {
+  // We need to work out the slope-intercept form (y = ax + b) for each line
+  // provided.
+};

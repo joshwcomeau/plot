@@ -1,4 +1,9 @@
-import { createDashedLine, getDistanceBetweenPoints } from './line.helpers';
+import {
+  createDashedLine,
+  getDistanceBetweenPoints,
+  getSlopeAndInterceptForLine,
+  findIntersectionBetweenTwoLines,
+} from './line.helpers';
 
 describe('line.helpers', () => {
   describe('getDistanceBetweenPoints', () => {
@@ -44,6 +49,50 @@ describe('line.helpers', () => {
       ];
 
       expect(actualOutput).toEqual(expectedOutput);
+    });
+  });
+
+  describe('getSlopeAndInterceptForLine', () => {
+    it('calculates the slope/intercept for an offset line', () => {
+      const p1 = [0, 2];
+      const p2 = [2, 4];
+
+      const expectedSolution = { slope: 1, intercept: 2 };
+      const actualSolution = getSlopeAndInterceptForLine([p1, p2]);
+
+      expect(actualSolution).toEqual(expectedSolution);
+    });
+
+    it('calculates the slope/intercept for a steep line', () => {
+      const p1 = [-1, -5];
+      const p2 = [1, 5];
+
+      const expectedSolution = { slope: 5, intercept: 0 };
+      const actualSolution = getSlopeAndInterceptForLine([p1, p2]);
+
+      expect(actualSolution).toEqual(expectedSolution);
+    });
+
+    it('calculates the slope/intercept for a parallel-to-X line', () => {
+      const p1 = [0, 4];
+      const p2 = [2, 4];
+
+      const expectedSolution = { slope: 0, intercept: 4 };
+      const actualSolution = getSlopeAndInterceptForLine([p1, p2]);
+
+      expect(actualSolution).toEqual(expectedSolution);
+    });
+  });
+
+  describe('findIntersectionBetweenTwoLines', () => {
+    it('works on simple lines', () => {
+      const line1 = [[0, 0], [1, 1]]; // y = x
+      const line2 = [[0, 1], [4, 3]]; // y = 0.5x + 1
+
+      const expectedSolution = 2;
+      const actualSolution = findIntersectionBetweenTwoLines(line1, line2);
+
+      expect(actualSolution).toEqual(expectedSolution);
     });
   });
 });

@@ -16,6 +16,9 @@ import settings from '../settings';
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
 
+// The "resolution" of the
+const DPI = 300;
+
 const getSampleCoordinates = ({
   sampleIndex,
   amplitude,
@@ -66,9 +69,9 @@ const sketch = async ({ width, height, context }) => {
 
   return props => {
     // from 0 to 100
-    const samplesPerRow = 4;
+    const samplesPerRow = 50;
     const distanceBetweenRows = 0.5;
-    const numRows = 1;
+    const numRows = 10;
     const pointWidth = 0.005;
     const pointGap = pointWidth * 2;
     const pointsPerSample = Math.floor(
