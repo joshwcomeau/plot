@@ -5,7 +5,7 @@
   "main": "sketch.js",
   "scripts": {
     "start": "canvas-sketch src/index.js --hot --output=./out",
-    "test": "jest"
+    "test": "jest --watch"
   },
   "keywords": [],
   "author": "Josh Comeau <joshwcomeau@gmail.com>",

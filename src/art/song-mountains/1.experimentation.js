@@ -65,6 +65,7 @@ const getSegmentsForSample = ({
       previousSample[0] + percentageThroughSample * distanceBetweenSamples;
     const y1 = Math.tan(angle) / (x1 - previousSample[1]);
 
+    console.log(y1, Math.tan(angle), x1, previousSample[1]);
     // if (i === 0) {
     //   console.log(Math.tan(angle), x1, previousSample[0]);
     // }
@@ -101,9 +102,9 @@ const sketch = async ({ width, height, context }) => {
 
   return props => {
     // from 0 to 100
-    const samplesPerRow = 20;
+    const samplesPerRow = 4;
     const distanceBetweenRows = 0.5;
-    const numRows = 20;
+    const numRows = 1;
     const pointWidth = 0.005;
     const pointGap = pointWidth * 2;
     const pointsPerSample = Math.floor(

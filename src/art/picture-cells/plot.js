@@ -7,7 +7,7 @@ import { parseImage } from '../../helpers/image.helpers.js';
 
 import settings from '../settings';
 
-const IMAGE_FILENAME = 'mona-lisa.png';
+const IMAGE_FILENAME = 'record-tiny.png';
 const MARGIN = 0.5;
 
 export default plotFn => {
