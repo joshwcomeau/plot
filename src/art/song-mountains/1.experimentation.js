@@ -10,6 +10,7 @@ import {
   createDashedLine,
   clipLinesWithMargin,
   groupPolylines,
+  getSlopeAndInterceptForLine,
 } from '../../helpers/line.helpers';
 import { normalize, range, compose } from '../../utils';
 
@@ -23,9 +24,9 @@ import settings from '../settings';
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
 
-const SAMPLES_PER_ROW = 50;
-const DISTANCE_BETWEEN_ROWS = 0.5;
-const NUM_ROWS = 2;
+const SAMPLES_PER_ROW = 200;
+const DISTANCE_BETWEEN_ROWS = 0.25;
+const NUM_ROWS = 20;
 
 /**
  *
@@ -37,9 +38,9 @@ const getRowOffset = (
   pageHeight,
   distanceBetweenRows = DISTANCE_BETWEEN_ROWS
 ) =>
-  // TODO: This should be MARGIN * 2. FInd out why lines are so far below
-  // the offset!
-  pageHeight - MARGIN * 7 - rowIndex * distanceBetweenRows;
+  // TODO: This should be MARGIN * 2 isntead of 4.
+  // FInd out why lines are so far below the offset!
+  pageHeight - 4 - rowIndex * distanceBetweenRows;
 
 const getSampleCoordinates = ({
   sampleIndex,
@@ -57,12 +58,40 @@ const takeOcclusionIntoAccount = (line, previousLines) => {
     return line;
   }
 
-  let newLine = [...line];
+  const { slope } = getSlopeAndInterceptForLine(line);
 
-  let earliestIntersection = null;
+  // First case: This line segment is totally below at least 1 previous line
+  // In this case, we want to return `null`. We don't want to render anything
+  // for this line.
+  const isTotallyBelow = previousLines.some(previousLine => {
+    return previousLine[0] < line[0] && previousLine[1] < line[1];
+  });
 
-  console.log('Comparing', line, previousLines);
+  if (isTotallyBelow) {
+    return null;
+  }
 
+  // Next case: the line is partially occluded.
+  // In the case that our line goes from not-occluded to occluded, we expect to
+  // see a line with a slope above our current line's
+  // if the slope is negative, we care about the _latest_ intersection:
+  /*
+
+  \    /
+   \ /                < negative slope in front of our line
+    \                   If there are multiple, the larger `x` intersection
+     \                  value wins
+
+
+        /
+  ----/               < positive slope in front of our line
+    /                   If there are multiple, the smaller `x` intersection
+  /                     value wins.
+
+  */
+
+  let becomeOccludedAt = null;
+  let breakFreeAt = null;
   previousLines.forEach(previousLine => {
     const { type, point } = checkIntersection(
       line[0][0],
@@ -75,18 +104,42 @@ const takeOcclusionIntoAccount = (line, previousLines) => {
       previousLine[1][1]
     );
 
-    if (type !== 'none') {
-      // TODO: check if this point is actually earlier, by looking at
-      // point.x
-      earliestIntersection = point;
+    if (type === 'intersecting') {
+      const { slope: previousSlope } = getSlopeAndInterceptForLine(
+        previousLine
+      );
+
+      // If our current slope is greater than the previous slope, it means
+      // that our line is currently occluded and breaking free.
+      // If the current slope is < the previous, it means our line is currently
+      // free, but is about to dip behind the previous line.
+      const isBecomingOccludedByThisLine = slope > previousSlope;
+      const isBreakingFreeFromThisLine = !isBecomingOccludedByThisLine;
+
+      if (isBecomingOccludedByThisLine) {
+        if (!becomeOccludedAt || becomeOccludedAt.x > point.x) {
+          becomeOccludedAt = [point.x, point.y];
+        }
+      } else if (isBreakingFreeFromThisLine) {
+        if (!breakFreeAt || breakFreeAt.x < point.x) {
+          breakFreeAt = [point.x, point.y];
+        }
+      }
     }
   });
 
-  if (earliestIntersection) {
-    newLine = [line[0], [earliestIntersection.x, earliestIntersection.y]];
+  let start = line[0];
+  let end = line[1];
+
+  if (becomeOccludedAt) {
+    end = becomeOccludedAt;
   }
 
-  return newLine;
+  if (breakFreeAt) {
+    start = breakFreeAt;
+  }
+
+  return [start, end];
 };
 
 /**
@@ -140,12 +193,10 @@ const sketch = async ({ width, height, context }) => {
       // up, so we multiply by -1.
       // Each row gets a certain % of the page height to work with.
       // (doesn't have to add up to 100, rows can overlap.)
-      const rowHeight = height * 0.5;
+      const rowHeight = height * 0.25;
       const rowOffset = getRowOffset(rowIndex, height);
       const numOfSamples = samples.length;
       const distanceBetweenSamples = width / numOfSamples;
-
-      let rowLines = [];
 
       samples.forEach((amplitude, sampleIndex) => {
         if (sampleIndex === 0) {
@@ -209,13 +260,13 @@ const sketch = async ({ width, height, context }) => {
           ];
         });
 
-        line = takeOcclusionIntoAccount(line, previousLines);
+        const occludedLine = takeOcclusionIntoAccount(line, previousLines);
 
-        lines.push(line);
+        lines.push(occludedLine);
       });
-
-      // lines.push(...rowLines);
     });
+
+    lines = lines.filter(line => !!line);
 
     const linePrep = compose(
       groupPolylines,
