@@ -1,11 +1,55 @@
 import {
-  createDashedLine,
+  isPointValid,
+  arePointsEqual,
   getDistanceBetweenPoints,
+  createDashedLine,
   getSlopeAndInterceptForLine,
-  findIntersectionBetweenTwoLines,
+  groupPolylines,
 } from './line.helpers';
 
 describe('line.helpers', () => {
+  describe('isPointValid', () => {
+    it('accepts a regular point', () => {
+      const p1 = [3, 6];
+
+      expect(isPointValid(p1)).toBe(true);
+    });
+
+    it('accepts a negative point', () => {
+      const p1 = [-3, 0];
+
+      expect(isPointValid(p1)).toBe(true);
+    });
+
+    it('does not accept a 3D point', () => {
+      const p1 = [-3, 0, 1];
+
+      expect(isPointValid(p1)).toBe(false);
+    });
+
+    it('does not accept an alternative format', () => {
+      const p1 = { x: 1, y: 3 };
+
+      expect(isPointValid(p1)).toBe(false);
+    });
+  });
+
+  describe('arePointsEqual', () => {
+    it('Checks two identical points for equality', () => {
+      const p1 = [0, 1];
+      const p2 = [0, 1];
+
+      expect(arePointsEqual(p1, p2)).toBe(true);
+    });
+
+    it('Checks two different points for equality', () => {
+      const p1 = [0, 1];
+      const p2 = [1, 0];
+
+      expect(arePointsEqual(p1, p2)).toBe(false);
+    });
+  });
+
   describe('getDistanceBetweenPoints', () => {
     it('calculates the hypothenuse', () => {
       const p1 = [0, 0];
@@ -27,8 +71,8 @@ describe('line.helpers', () => {
       expect(actualOutput).toEqual(expectedOutput);
     });
   });
-  describe('createDashedLine', () => {
-    it('creates a small horizontal 4-dotted line', () => {
+  it('creates a small horizontal 4-dotted line', () => {
+    describe('createDashedLine', () => {
       const p1 = [0, 0];
       const p2 = [5, 0];
       const numOfDashes = 5;
@@ -84,13 +128,48 @@ describe('line.helpers', () => {
     });
   });
 
-  describe('findIntersectionBetweenTwoLines', () => {
-    it('works on simple lines', () => {
-      const line1 = [[0, 0], [1, 1]]; // y = x
-      const line2 = [[0, 1], [4, 3]]; // y = 0.5x + 1
+  describe('groupPolylines', () => {
+    it('ignores totally unconnected lines', () => {
+      const line1 = [[0, 0], [1, 1]];
+      const line2 = [[2, 3], [4, 5]];
+      const line3 = [[6, 7], [8, 9]];
 
-      const expectedSolution = 2;
-      const actualSolution = findIntersectionBetweenTwoLines(line1, line2);
+      const lines = [line1, line2, line3];
+
+      const actualSolution = groupPolylines(lines);
+      const expectedSolution = lines;
+
+      expect(actualSolution).toEqual(expectedSolution);
+    });
+
+    it('groups 3 contiguous lines', () => {
+      const line1 = [[0, 0], [1, 1]];
+      const line2 = [[1, 1], [2, 2]];
+      const line3 = [[2, 2], [3, 3]];
+
+      const lines = [line1, line2, line3];
+
+      const actualSolution = groupPolylines(lines);
+      const expectedSolution = [[[0, 0], [1, 1], [2, 2], [3, 3]]];
+
+      expect(actualSolution).toEqual(expectedSolution);
+    });
+
+    it('handles gaps between groups', () => {
+      const line1 = [[0, 0], [1, 1]];
+      const line2 = [[1, 1], [2, 2]];
+      const line3 = [[3, 3], [4, 10]]; // gap 1
+      const line4 = [[4, 10], [5, 2]];
+      const line5 = [[5, 5], [6, 8]]; // gap 2
+
+      const lines = [line1, line2, line3, line4, line5];
+
+      const actualSolution = groupPolylines(lines);
+      const expectedSolution = [
+        [[0, 0], [1, 1], [2, 2]],
+        [[3, 3], [4, 10], [5, 2]],
+        [[5, 5], [6, 8]],
+      ];
 
       expect(actualSolution).toEqual(expectedSolution);
     });

@@ -5,6 +5,23 @@ const convertUnits = require('convert-units');
 
 import { range } from '../utils';
 
+export const isPointValid = p1 => {
+  return (
+    Array.isArray(p1) &&
+    p1.length === 2 &&
+    typeof p1[0] === 'number' &&
+    typeof p1[1] === 'number'
+  );
+};
+
+export const arePointsEqual = (p1, p2) => {
+  if (!isPointValid(p1) || !isPointValid(p2)) {
+    throw new Error('Invalid points supplied', JSON.stringify([p1, p2]));
+  }
+
+  return p1[0] === p2[0] && p1[1] === p2[1];
+};
+
 export const getDistanceBetweenPoints = (p1, p2) => {
   const deltaX = p2[0] - p1[0];
   const deltaY = p2[1] - p1[1];
@@ -81,7 +98,42 @@ export const getSlopeAndInterceptForLine = ([[x1, y1], [x2, y2]]) => {
   return { slope, intercept };
 };
 
-export const findIntersectionBetweenTwoLines = (line1, line2) => {
-  // We need to work out the slope-intercept form (y = ax + b) for each line
-  // provided.
+/**
+ * Plotters work best when lines are connected in a "polyline", an array of
+ * points. For this to work, though, the line must be contiguous.
+ * Sometimes, it's easier during development to just treat each line segment
+ * as an individual connection between 2 points.
+ * This function does the work of going through the lines, in order, and
+ * connecting any individual lines that share points into a polyline.
+ *
+ * @example [ [[0, 0], [0, 1]], [[0, 1], [0, 2]], [[0, 5], [0, 6]] ]
+ *            \_____________/   \_____________/   \_____________/
+ *                Line 1            Line 2             Line 3
+ *
+ *       -> [ [[0, 0], [0, 1], [0,2]], [[0, 5], [0, 6]] ]
+ *            \_____________________/  \_____________/
+ *                    Line 1               Line 2
+ */
+export const groupPolylines = lines => {
+  return lines.reduce((acc, line, index) => {
+    if (index === 0) {
+      // For the very first line, create the first polyline
+      return [...acc, line];
+    }
+
+    const [point1, point2] = line;
+
+    // Check the previous point in `lines`, to see if it matches
+    const [previousLinePoint1, previousLinePoint2] = lines[index - 1];
+
+    const isContiguous = arePointsEqual(previousLinePoint2, point1);
+
+    if (isContiguous) {
+      acc[acc.length - 1].push(point2);
+    } else {
+      acc.push(line);
+    }
+
+    return acc;
+  }, []);
 };
