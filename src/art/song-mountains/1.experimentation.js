@@ -9,8 +9,9 @@ import { loadAudioData } from '../../helpers/audio.helpers';
 import {
   createDashedLine,
   clipLinesWithMargin,
+  groupPolylines,
 } from '../../helpers/line.helpers';
-import { normalize, range } from '../../utils';
+import { normalize, range, compose } from '../../utils';
 
 import settings from '../settings';
 
@@ -19,7 +20,7 @@ const MARGIN = 0.5;
 
 const SAMPLES_PER_ROW = 50;
 const DISTANCE_BETWEEN_ROWS = 0.5;
-const NUM_ROWS = 1;
+const NUM_ROWS = 2;
 
 const getRowOffset = (
   rowIndex,
@@ -92,10 +93,14 @@ const sketch = async ({ width, height, context }) => {
       const numOfSamples = samples.length;
       const distanceBetweenSamples = width / numOfSamples;
 
-      let rowPolyline = [];
+      let rowLines = [];
 
       samples.forEach((amplitude, sampleIndex) => {
-        const samplePoint = getSampleCoordinates({
+        if (sampleIndex === 0) {
+          return;
+        }
+
+        let samplePoint = getSampleCoordinates({
           sampleIndex,
           amplitude,
           distanceBetweenSamples,
@@ -104,57 +109,97 @@ const sketch = async ({ width, height, context }) => {
         });
 
         const previousAmplitude = samples[sampleIndex - 1];
-        const previousSamplePoint =
-          typeof previousAmplitude === 'number'
-            ? getSampleCoordinates({
-                sampleIndex: sampleIndex - 1,
-                amplitude: previousAmplitude,
-                distanceBetweenSamples,
-                rowOffset,
-                rowHeight,
-              })
-            : undefined;
-
-        rowPolyline.push(samplePoint);
+        const previousSamplePoint = getSampleCoordinates({
+          sampleIndex: sampleIndex - 1,
+          amplitude: previousAmplitude,
+          distanceBetweenSamples,
+          rowOffset,
+          rowHeight,
+        });
 
         // Look at previous rows
         let rowIndexPointer = rowIndex - 1;
         const maxNumToCheck = 3;
         const stopAt = rowIndexPointer - maxNumToCheck;
 
-        while (rowIndexPointer > stopAt && rowIndexPointer >= 0) {
-          const rowToCompare = samplesInRows[rowIndexPointer];
-          const previousRowOffset = getRowOffset(rowIndexPointer, height);
+        let earliestIntersection = null;
 
-          const previousRowSampleLine = [
+        while (
+          rowIndexPointer > stopAt &&
+          rowIndexPointer >= 0 &&
+          sampleIndex > 0
+        ) {
+          const rowToCompare = samplesInRows[rowIndexPointer];
+          const rowToCompareOffset = getRowOffset(rowIndexPointer, height);
+
+          const otherRowSampleLine = [
             getSampleCoordinates({
               sampleIndex: sampleIndex - 1,
-              amplitude: previousAmplitude,
+              amplitude: rowToCompare[sampleIndex - 1],
               distanceBetweenSamples,
-              rowOffset: previousRowOffset,
+              rowOffset: rowToCompareOffset,
+              rowHeight,
+            }),
+            getSampleCoordinates({
+              sampleIndex: sampleIndex,
+              amplitude: rowToCompare[sampleIndex],
+              distanceBetweenSamples,
+              rowOffset: rowToCompareOffset,
               rowHeight,
             }),
           ];
 
+          const currentRowSampleLine = [previousSamplePoint, samplePoint];
+
+          const { type, point } = checkIntersection(
+            currentRowSampleLine[0][0],
+            currentRowSampleLine[0][1],
+            currentRowSampleLine[1][0],
+            currentRowSampleLine[1][1],
+            otherRowSampleLine[0][0],
+            otherRowSampleLine[0][1],
+            otherRowSampleLine[1][0],
+            otherRowSampleLine[1][1]
+          );
+
+          if (type !== 'none') {
+            // TODO: check if this point is actually earlier, by looking at
+            // point.x
+            earliestIntersection = point;
+          }
+
           rowIndexPointer--;
         }
 
-        return;
+        if (earliestIntersection) {
+          samplePoint = [earliestIntersection.x, earliestIntersection.y];
+        }
 
-        // TODO: Forget about segments, instead use `checkIntersection` to see
-        // if this line (from previousSample to sample) intersect with any
-        // of the lines in previous rows (maybe check 3-4 back?).
-        // We can also just check if the Y value for sample is under the Y
-        // values of previous rows (it might make sense to do this as a
-        // separate pass, after coming up with the original lines?)
+        rowLines.push([previousSamplePoint, samplePoint]);
+
+        return;
       });
 
-      lines.push(rowPolyline);
+      lines.push(...rowLines);
     });
 
-    console.log(lines);
+    const linePrep = lines =>
+      groupPolylines(
+        clipLinesWithMargin({
+          lines,
+          margin: MARGIN,
+          width,
+          height,
+        })
+      );
 
-    lines = clipLinesWithMargin({ margin: MARGIN, width, height, lines });
+    console.log('lines', lines);
+    console.log('line', lines[0]);
+    console.log('point', lines[0][0]);
+
+    console.log('before group', lines);
+    lines = linePrep(lines);
+    console.log('after group', lines);
 
     return renderPolylines(lines, props);
   };

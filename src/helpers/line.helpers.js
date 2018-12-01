@@ -16,7 +16,7 @@ export const isPointValid = p1 => {
 
 export const arePointsEqual = (p1, p2) => {
   if (!isPointValid(p1) || !isPointValid(p2)) {
-    throw new Error('Invalid points supplied', JSON.stringify([p1, p2]));
+    throw new Error('Invalid points supplied: ' + JSON.stringify([p1, p2]));
   }
 
   return p1[0] === p2[0] && p1[1] === p2[1];
