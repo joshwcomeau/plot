@@ -15,6 +15,11 @@ import { normalize, range, compose } from '../../utils';
 
 import settings from '../settings';
 
+/**
+ *
+ * STATIC SETTINGS
+ *
+ */
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
 
@@ -22,6 +27,11 @@ const SAMPLES_PER_ROW = 50;
 const DISTANCE_BETWEEN_ROWS = 0.5;
 const NUM_ROWS = 2;
 
+/**
+ *
+ * UTILITY / HELPER METHODS
+ *
+ */
 const getRowOffset = (
   rowIndex,
   pageHeight,
@@ -42,6 +52,48 @@ const getSampleCoordinates = ({
   normalize(amplitude, -128, 128, 0, rowHeight) + rowOffset,
 ];
 
+const takeOcclusionIntoAccount = (line, previousLines) => {
+  if (previousLines.length === 0) {
+    return line;
+  }
+
+  let newLine = [...line];
+
+  let earliestIntersection = null;
+
+  console.log('Comparing', line, previousLines);
+
+  previousLines.forEach(previousLine => {
+    const { type, point } = checkIntersection(
+      line[0][0],
+      line[0][1],
+      line[1][0],
+      line[1][1],
+      previousLine[0][0],
+      previousLine[0][1],
+      previousLine[1][0],
+      previousLine[1][1]
+    );
+
+    if (type !== 'none') {
+      // TODO: check if this point is actually earlier, by looking at
+      // point.x
+      earliestIntersection = point;
+    }
+  });
+
+  if (earliestIntersection) {
+    newLine = [line[0], [earliestIntersection.x, earliestIntersection.y]];
+  }
+
+  return newLine;
+};
+
+/**
+ *
+ * MAIN SKETCH METHOD
+ *
+ */
 const sketch = async ({ width, height, context }) => {
   const waveform = await loadAudioData(SONG_FILENAME);
 
@@ -80,9 +132,9 @@ const sketch = async ({ width, height, context }) => {
 
     const allSamples = waveform.min.slice(firstNonZeroValueIndex);
 
-    const samplesInRows = chunk(allSamples, SAMPLES_PER_ROW).slice(0, NUM_ROWS);
+    const sampleRows = chunk(allSamples, SAMPLES_PER_ROW).slice(0, NUM_ROWS);
 
-    samplesInRows.forEach((samples, rowIndex) => {
+    sampleRows.forEach((samples, rowIndex) => {
       // Each row is `DISTANCE_BETWEEN_ROWS` apart.
       // The first row is at the bottom of the page, and each one is higher
       // up, so we multiply by -1.
@@ -117,89 +169,60 @@ const sketch = async ({ width, height, context }) => {
           rowHeight,
         });
 
-        // Look at previous rows
-        let rowIndexPointer = rowIndex - 1;
-        const maxNumToCheck = 3;
-        const stopAt = rowIndexPointer - maxNumToCheck;
+        let line = [previousSamplePoint, samplePoint];
 
-        let earliestIntersection = null;
+        // Take the 3 most recent rows into account
+        const previousRows = [
+          sampleRows[rowIndex - 1],
+          sampleRows[rowIndex - 2],
+          sampleRows[rowIndex - 3],
+        ].filter(row => !!row);
 
-        while (
-          rowIndexPointer > stopAt &&
-          rowIndexPointer >= 0 &&
-          sampleIndex > 0
-        ) {
-          const rowToCompare = samplesInRows[rowIndexPointer];
-          const rowToCompareOffset = getRowOffset(rowIndexPointer, height);
+        const previousLines = previousRows.map((row, index) => {
+          // We need to remember this row's offset.
+          // If this is index 0, this is 1 row earlier.
+          // If this is index 1, this is 2 rows earlier, etc.
+          // So we can just add 1 to the index, to figure out how many rows
+          // back this was.
+          const numOfRowsBack = index + 1;
 
-          const otherRowSampleLine = [
+          const previousRowOffset = getRowOffset(
+            rowIndex - numOfRowsBack,
+            height
+          );
+
+          return [
             getSampleCoordinates({
               sampleIndex: sampleIndex - 1,
-              amplitude: rowToCompare[sampleIndex - 1],
+              amplitude: row[sampleIndex - 1],
               distanceBetweenSamples,
-              rowOffset: rowToCompareOffset,
+              rowOffset: previousRowOffset,
               rowHeight,
             }),
             getSampleCoordinates({
               sampleIndex: sampleIndex,
-              amplitude: rowToCompare[sampleIndex],
+              amplitude: row[sampleIndex],
               distanceBetweenSamples,
-              rowOffset: rowToCompareOffset,
+              rowOffset: previousRowOffset,
               rowHeight,
             }),
           ];
+        });
 
-          const currentRowSampleLine = [previousSamplePoint, samplePoint];
+        line = takeOcclusionIntoAccount(line, previousLines);
 
-          const { type, point } = checkIntersection(
-            currentRowSampleLine[0][0],
-            currentRowSampleLine[0][1],
-            currentRowSampleLine[1][0],
-            currentRowSampleLine[1][1],
-            otherRowSampleLine[0][0],
-            otherRowSampleLine[0][1],
-            otherRowSampleLine[1][0],
-            otherRowSampleLine[1][1]
-          );
-
-          if (type !== 'none') {
-            // TODO: check if this point is actually earlier, by looking at
-            // point.x
-            earliestIntersection = point;
-          }
-
-          rowIndexPointer--;
-        }
-
-        if (earliestIntersection) {
-          samplePoint = [earliestIntersection.x, earliestIntersection.y];
-        }
-
-        rowLines.push([previousSamplePoint, samplePoint]);
-
-        return;
+        lines.push(line);
       });
 
-      lines.push(...rowLines);
+      // lines.push(...rowLines);
     });
 
-    const linePrep = lines =>
-      groupPolylines(
-        clipLinesWithMargin({
-          lines,
-          margin: MARGIN,
-          width,
-          height,
-        })
-      );
+    const linePrep = compose(
+      groupPolylines,
+      clipLinesWithMargin
+    );
 
-    console.log('lines', lines);
-    console.log('line', lines[0]);
-    console.log('point', lines[0][0]);
-
-    console.log('before group', lines);
-    lines = linePrep(lines);
-    console.log('after group', lines);
+    lines = linePrep({ lines, margin: MARGIN, width, height });
 
     return renderPolylines(lines, props);
   };
