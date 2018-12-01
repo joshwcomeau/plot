@@ -2,6 +2,7 @@
 import canvasSketch from 'canvas-sketch';
 import { renderPolylines } from 'canvas-sketch-util/penplot';
 import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
+import { checkIntersection } from 'line-intersect';
 import chunk from 'lodash/chunk';
 
 import { loadAudioData } from '../../helpers/audio.helpers';
@@ -16,68 +17,34 @@ import settings from '../settings';
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
 
-// The "resolution" of the
-const DPI = 300;
+const SAMPLES_PER_ROW = 50;
+const DISTANCE_BETWEEN_ROWS = 0.5;
+const NUM_ROWS = 1;
+
+const getRowOffset = (
+  rowIndex,
+  pageHeight,
+  distanceBetweenRows = DISTANCE_BETWEEN_ROWS
+) =>
+  // TODO: This should be MARGIN * 2. FInd out why lines are so far below
+  // the offset!
+  pageHeight - MARGIN * 7 - rowIndex * distanceBetweenRows;
 
 const getSampleCoordinates = ({
   sampleIndex,
   amplitude,
   distanceBetweenSamples,
+  rowOffset,
   rowHeight,
 }) => [
   sampleIndex * distanceBetweenSamples + MARGIN,
-  normalize(amplitude, -128, 128, 0, rowHeight),
+  normalize(amplitude, -128, 128, 0, rowHeight) + rowOffset,
 ];
-
-const getSegmentsForSample = ({
-  amplitude,
-  previousAmplitude,
-  sampleIndex,
-  numOfSamples,
-  pageWidth,
-  pageHeight,
-  rowHeight,
-  pointsPerSample,
-  pointWidth,
-}) => {
-  const distanceBetweenSamples = pageWidth / numOfSamples;
-
-  const previousSample = getSampleCoordinates({
-    sampleIndex: sampleIndex - 1,
-    amplitude: previousAmplitude,
-    distanceBetweenSamples,
-    rowHeight,
-  });
-
-  const sample = getSampleCoordinates({
-    sampleIndex,
-    amplitude,
-    distanceBetweenSamples,
-    rowHeight,
-  });
-
-  return createDashedLine({
-    p1: previousSample,
-    p2: sample,
-    numOfDashes: 100,
-    dashLength: 0.01,
-  });
-};
 
 const sketch = async ({ width, height, context }) => {
   const waveform = await loadAudioData(SONG_FILENAME);
 
   return props => {
-    // from 0 to 100
-    const samplesPerRow = 50;
-    const distanceBetweenRows = 0.5;
-    const numRows = 10;
-    const pointWidth = 0.005;
-    const pointGap = pointWidth * 2;
-    const pointsPerSample = Math.floor(
-      width / samplesPerRow / (pointWidth + pointGap)
-    );
-
     let lines = [];
 
     // Our audio returns an array of "samples", under waveform.min.
@@ -112,56 +79,80 @@ const sketch = async ({ width, height, context }) => {
 
     const allSamples = waveform.min.slice(firstNonZeroValueIndex);
 
-    chunk(allSamples.slice(100), samplesPerRow)
-      .slice(0, numRows)
-      .forEach((samples, chunkIndex) => {
-        // Each row is `distanceBetweenRows` apart.
-        // The first row is at the bottom of the page, and each one is higher
-        // up, so we multiply by -1.
-        // Each row gets a certain % of the page height to work with.
-        // (doesn't have to add up to 100, rows can overlap.)
-        const rowHeight = height * 0.5;
-        const rowOffset = chunkIndex * distanceBetweenRows * -1;
-        const numOfSamples = samples.length;
+    const samplesInRows = chunk(allSamples, SAMPLES_PER_ROW).slice(0, NUM_ROWS);
 
-        let segmentsForChunk = [];
+    samplesInRows.forEach((samples, rowIndex) => {
+      // Each row is `DISTANCE_BETWEEN_ROWS` apart.
+      // The first row is at the bottom of the page, and each one is higher
+      // up, so we multiply by -1.
+      // Each row gets a certain % of the page height to work with.
+      // (doesn't have to add up to 100, rows can overlap.)
+      const rowHeight = height * 0.5;
+      const rowOffset = getRowOffset(rowIndex, height);
+      const numOfSamples = samples.length;
+      const distanceBetweenSamples = width / numOfSamples;
 
-        samples.forEach((amplitude, sampleIndex) => {
-          // For the very first sample in this chunk, we have nothing to
-          // connect it to! It floats alone. So we can skip it.
-          if (sampleIndex === 0) {
-            return;
-          }
+      let rowPolyline = [];
 
-          const previousAmplitude = samples[sampleIndex - 1];
-
-          let segmentsForSample = getSegmentsForSample({
-            amplitude,
-            previousAmplitude,
-            sampleIndex,
-            numOfSamples,
-            pageWidth: width,
-            pageHeight: height,
-            rowHeight,
-            pointsPerSample,
-            pointWidth,
-            pointGap,
-          });
-
-          // Each row has assumed its Y values are relative to the row.
-          // Transform them to be relative to the document
-          const firstRowY = height * 0.65;
-          segmentsForSample = segmentsForSample.map(segment => {
-            segment[0][1] += firstRowY + rowOffset;
-            segment[1][1] += firstRowY + rowOffset;
-            return segment;
-          });
-
-          segmentsForChunk.push(...segmentsForSample);
+      samples.forEach((amplitude, sampleIndex) => {
+        const samplePoint = getSampleCoordinates({
+          sampleIndex,
+          amplitude,
+          distanceBetweenSamples,
+          rowOffset,
+          rowHeight,
         });
 
-        lines.push(...segmentsForChunk);
+        const previousAmplitude = samples[sampleIndex - 1];
+        const previousSamplePoint =
+          typeof previousAmplitude === 'number'
+            ? getSampleCoordinates({
+                sampleIndex: sampleIndex - 1,
+                amplitude: previousAmplitude,
+                distanceBetweenSamples,
+                rowOffset,
+                rowHeight,
+              })
+            : undefined;
+
+        rowPolyline.push(samplePoint);
+
+        // Look at previous rows
+        let rowIndexPointer = rowIndex - 1;
+        const maxNumToCheck = 3;
+        const stopAt = rowIndexPointer - maxNumToCheck;
+
+        while (rowIndexPointer > stopAt && rowIndexPointer >= 0) {
+          const rowToCompare = samplesInRows[rowIndexPointer];
+          const previousRowOffset = getRowOffset(rowIndexPointer, height);
+
+          const previousRowSampleLine = [
+            getSampleCoordinates({
+              sampleIndex: sampleIndex - 1,
+              amplitude: previousAmplitude,
+              distanceBetweenSamples,
+              rowOffset: previousRowOffset,
+              rowHeight,
+            }),
+          ];
+
+          rowIndexPointer--;
+        }
+
+        return;
+
+        // TODO: Forget about segments, instead use `checkIntersection` to see
+        // if this line (from previousSample to sample) intersect with any
+        // of the lines in previous rows (maybe check 3-4 back?).
+        // We can also just check if the Y value for sample is under the Y
+        // values of previous rows (it might make sense to do this as a
+        // separate pass, after coming up with the original lines?)
       });
+
+      lines.push(rowPolyline);
+    });
+
+    console.log(lines);
 
     lines = clipLinesWithMargin({ margin: MARGIN, width, height, lines });
 
