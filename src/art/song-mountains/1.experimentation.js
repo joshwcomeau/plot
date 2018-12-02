@@ -18,7 +18,7 @@ import { seed, perlin2 } from '../../vendor/noise';
 
 import settings from '../settings';
 
-seed(Math.random());
+seed(0.51);
 
 /**
  *
@@ -28,9 +28,9 @@ seed(Math.random());
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
 
-const SAMPLES_PER_ROW = 1000;
+const SAMPLES_PER_ROW = 500;
 const DISTANCE_BETWEEN_ROWS = 0.25;
-const NUM_ROWS = 20;
+const NUM_ROWS = 35;
 
 /**
  *
@@ -44,7 +44,7 @@ const getRowOffset = (
 ) =>
   // TODO: This should be MARGIN * 2 isntead of 4.
   // FInd out why lines are so far below the offset!
-  pageHeight - 4 - rowIndex * distanceBetweenRows;
+  pageHeight - MARGIN * 2 - rowIndex * distanceBetweenRows;
 
 const getSampleCoordinates = ({
   value,
@@ -57,7 +57,7 @@ const getSampleCoordinates = ({
   normalize(value, -1, 1, -rowHeight * 0.25, rowHeight * 0.25) + rowOffset,
 ];
 
-const takeOcclusionIntoAccount = (line, previousLines) => {
+const takeOcclusionIntoAccount = (line, previousLines, debug = false) => {
   if (previousLines.length === 0) {
     return line;
   }
@@ -68,8 +68,11 @@ const takeOcclusionIntoAccount = (line, previousLines) => {
   // In this case, we want to return `null`. We don't want to render anything
   // for this line.
   const isTotallyBelow = previousLines.some(previousLine => {
-    return previousLine[0] < line[0] && previousLine[1] < line[1];
+    return previousLine[0][1] < line[0][1] && previousLine[1][1] < line[1][1];
   });
+
+  if (debug && isTotallyBelow) {
+  }
 
   if (isTotallyBelow) {
     return null;
@@ -193,8 +196,6 @@ const getValue = (sampleIndex, rowIndex) => {
 
   const [, heightDampingAmount] = getValuesForBezierCurve(bezierArgs);
 
-  // console.log(heightDampingAmount);
-
   return noiseVal * heightDampingAmount;
 };
 
@@ -277,7 +278,11 @@ const sketch = async ({ width, height, context }) => {
           ];
         });
 
-        const occludedLine = takeOcclusionIntoAccount(line, previousLines);
+        const occludedLine = takeOcclusionIntoAccount(
+          line,
+          previousLines,
+          rowIndex === 3
+        );
 
         lines.push(occludedLine);
       });
