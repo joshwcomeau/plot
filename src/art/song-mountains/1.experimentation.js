@@ -18,7 +18,7 @@ import { seed, perlin2 } from '../../vendor/noise';
 
 import settings from '../settings';
 
-seed(0.51);
+seed(Math.random());
 
 /**
  *
@@ -26,11 +26,13 @@ seed(0.51);
  *
  */
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
-const MARGIN = 0.5;
+const MARGIN = 1;
 
 const SAMPLES_PER_ROW = 500;
 const DISTANCE_BETWEEN_ROWS = 0.25;
-const NUM_ROWS = 35;
+const NUM_ROWS = 30;
+
+const PEAK_AMPLITUDE_MULTIPLIER = 0.35;
 
 /**
  *
@@ -54,7 +56,13 @@ const getSampleCoordinates = ({
   rowHeight,
 }) => [
   sampleIndex * distanceBetweenSamples + MARGIN,
-  normalize(value, -1, 1, -rowHeight * 0.25, rowHeight * 0.25) + rowOffset,
+  normalize(
+    value,
+    -1,
+    1,
+    -rowHeight * PEAK_AMPLITUDE_MULTIPLIER,
+    rowHeight * PEAK_AMPLITUDE_MULTIPLIER
+  ) + rowOffset,
 ];
 
 const takeOcclusionIntoAccount = (line, previousLines, debug = false) => {
@@ -222,7 +230,7 @@ const sketch = async ({ width, height, context }) => {
         const value = getValue(sampleIndex, rowIndex);
 
         const rowOffset = getRowOffset(rowIndex, height);
-        const distanceBetweenSamples = width / SAMPLES_PER_ROW;
+        const distanceBetweenSamples = (width - MARGIN * 2) / SAMPLES_PER_ROW;
 
         if (sampleIndex === 0) {
           return;
