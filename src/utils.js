@@ -25,8 +25,8 @@ export const normalize = (
   number,
   currentScaleMin,
   currentScaleMax,
-  newScaleMin,
-  newScaleMax
+  newScaleMin = 0,
+  newScaleMax = 1
 ) => {
   // FIrst, normalize the value between 0 and 1.
   const standardNormalization =

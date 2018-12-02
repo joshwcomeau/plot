@@ -11,9 +11,10 @@ import {
   clipLinesWithMargin,
   groupPolylines,
   getSlopeAndInterceptForLine,
+  getValuesForBezierCurve,
 } from '../../helpers/line.helpers';
 import { normalize, range, compose } from '../../utils';
-import { seed, simplex2 } from '../../vendor/noise';
+import { seed, perlin2 } from '../../vendor/noise';
 
 import settings from '../settings';
 
@@ -27,8 +28,8 @@ seed(Math.random());
 const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 0.5;
 
-const SAMPLES_PER_ROW = 200;
-const DISTANCE_BETWEEN_ROWS = 1;
+const SAMPLES_PER_ROW = 1000;
+const DISTANCE_BETWEEN_ROWS = 0.25;
 const NUM_ROWS = 20;
 
 /**
@@ -53,7 +54,7 @@ const getSampleCoordinates = ({
   rowHeight,
 }) => [
   sampleIndex * distanceBetweenSamples + MARGIN,
-  normalize(value, -1, 1, -rowHeight * 0.1, rowHeight * 0.1) + rowOffset,
+  normalize(value, -1, 1, -rowHeight * 0.25, rowHeight * 0.25) + rowOffset,
 ];
 
 const takeOcclusionIntoAccount = (line, previousLines) => {
@@ -145,9 +146,67 @@ const takeOcclusionIntoAccount = (line, previousLines) => {
   return [start, end];
 };
 
+const getValue = (sampleIndex, rowIndex) => {
+  // Calculate the noise value for this point in space.
+  const noiseVal = perlin2(sampleIndex / 70, rowIndex * 1.5);
+
+  // If we were to just return `noiseVal`, we'd have mountains all over the
+  // page. Instead, though, we want to dampen the effect of the randomization,
+  // so that it starts subtle, peaks in the center, and then drops off at the
+  // end. Like a bell curve.
+  //
+  // My not-the-smartest way to do this is to consider it as 2 bezier curves:
+  /*
+
+  For the first half, use a cubic bezier curve to produce a curve that eases
+  in and out, to ramp from 0 to 1:
+  o         ____o
+          /
+        |
+  _____|
+  o             o
+
+  The second half will be the mirror image, starting high and dropping low.
+  */
+
+  const ratio = sampleIndex / SAMPLES_PER_ROW;
+  const isInFirstHalf = ratio < 0.5;
+
+  let bezierArgs = {};
+  if (isInFirstHalf) {
+    bezierArgs = {
+      startPoint: [0, 0],
+      controlPoint1: [1, 0],
+      controlPoint2: [0, 1],
+      endPoint: [1, 1],
+      t: ratio * 2,
+    };
+  } else {
+    bezierArgs = {
+      startPoint: [0, 1],
+      controlPoint1: [1, 1],
+      controlPoint2: [0, 0],
+      endPoint: [1, 0],
+      t: normalize(ratio, 0.5, 1),
+    };
+  }
+
+  const [, heightDampingAmount] = getValuesForBezierCurve(bezierArgs);
+
+  // console.log(heightDampingAmount);
+
+  return noiseVal * heightDampingAmount;
+};
+
 /**
  *
+ *
+ *
+ *
  * MAIN SKETCH METHOD
+ *
+ *
+ *
  *
  */
 const sketch = async ({ width, height, context }) => {
@@ -159,7 +218,7 @@ const sketch = async ({ width, height, context }) => {
     // Generate some data!
     range(NUM_ROWS).forEach(rowIndex => {
       range(SAMPLES_PER_ROW).forEach(sampleIndex => {
-        const value = simplex2(sampleIndex, rowIndex);
+        const value = getValue(sampleIndex, rowIndex);
 
         const rowOffset = getRowOffset(rowIndex, height);
         const distanceBetweenSamples = width / SAMPLES_PER_ROW;
@@ -176,7 +235,7 @@ const sketch = async ({ width, height, context }) => {
           rowHeight: ROW_HEIGHT,
         });
 
-        const previousValue = simplex2(sampleIndex - 1, rowIndex);
+        const previousValue = getValue(sampleIndex - 1, rowIndex);
         const previousSamplePoint = getSampleCoordinates({
           sampleIndex: sampleIndex - 1,
           value: previousValue,
@@ -192,6 +251,9 @@ const sketch = async ({ width, height, context }) => {
           rowIndex - 1,
           rowIndex - 2,
           rowIndex - 3,
+          rowIndex - 4,
+          rowIndex - 5,
+          rowIndex - 6,
         ].filter(index => index >= 0);
 
         const previousLines = previousRowIndices.map(previousRowIndex => {
@@ -199,14 +261,14 @@ const sketch = async ({ width, height, context }) => {
 
           return [
             getSampleCoordinates({
-              value: simplex2(sampleIndex - 1, previousRowIndex),
+              value: getValue(sampleIndex - 1, previousRowIndex),
               sampleIndex: sampleIndex - 1,
               distanceBetweenSamples,
               rowOffset: previousRowOffset,
               rowHeight: ROW_HEIGHT,
             }),
             getSampleCoordinates({
-              value: simplex2(sampleIndex, previousRowIndex),
+              value: getValue(sampleIndex, previousRowIndex),
               sampleIndex: sampleIndex,
               distanceBetweenSamples,
               rowOffset: previousRowOffset,

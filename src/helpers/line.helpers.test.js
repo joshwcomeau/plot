@@ -5,6 +5,7 @@ import {
   createDashedLine,
   getSlopeAndInterceptForLine,
   groupPolylines,
+  getValuesForBezierCurve,
 } from './line.helpers';
 
 describe('line.helpers', () => {
@@ -172,6 +173,53 @@ describe('line.helpers', () => {
       ];
 
       expect(actualSolution).toEqual(expectedSolution);
+    });
+  });
+
+  describe('getValuesForBezierCurve', () => {
+    it('Finds the initial value for a bezier curve', () => {
+      const args = {
+        startPoint: [0, 0],
+        endPoint: [1, 1],
+        controlPoint1: [1, 0],
+        controlPoint2: [0, 1],
+        t: 0,
+      };
+
+      const actualValue = getValuesForBezierCurve(args);
+      const expectedValue = [0, 0];
+
+      expect(actualValue).toEqual(expectedValue);
+    });
+
+    it('Finds the final value for a bezier curve', () => {
+      const args = {
+        startPoint: [0, 0],
+        endPoint: [1, 1],
+        controlPoint1: [1, 0],
+        controlPoint2: [0, 1],
+        t: 1,
+      };
+
+      const actualValue = getValuesForBezierCurve(args);
+      const expectedValue = [1, 1];
+
+      expect(actualValue).toEqual(expectedValue);
+    });
+
+    it('Finds a midpoint value', () => {
+      const args = {
+        startPoint: [0, 0],
+        endPoint: [1, 1],
+        controlPoint1: [1, 0],
+        controlPoint2: [1, 0],
+        t: 0.25,
+      };
+
+      const actualValue = getValuesForBezierCurve(args);
+      const expectedValue = [0.578125, 0.015625];
+
+      expect(actualValue).toEqual(expectedValue);
     });
   });
 });

@@ -137,3 +137,29 @@ export const groupPolylines = lines => {
     return acc;
   }, []);
 };
+
+/**
+ * Given 4 points for a cubic bezier curve, figure out the X/Y values for
+ * `t`, a number from 0-1 representing progress.
+ */
+export const getValuesForBezierCurve = ({
+  startPoint,
+  endPoint,
+  controlPoint1,
+  controlPoint2,
+  t,
+}) => {
+  const x =
+    (1 - t) ** 3 * startPoint[0] +
+    3 * (1 - t) ** 2 * t * controlPoint1[0] +
+    3 * (1 - t) * t ** 2 * controlPoint2[0] +
+    t ** 3 * endPoint[0];
+
+  const y =
+    (1 - t) ** 3 * startPoint[1] +
+    3 * (1 - t) ** 2 * t * controlPoint1[1] +
+    3 * (1 - t) * t ** 2 * controlPoint2[1] +
+    t ** 3 * endPoint[1];
+
+  return [x, y];
+};
