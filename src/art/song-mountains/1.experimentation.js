@@ -18,19 +18,31 @@ import { seed, perlin2 } from '../../vendor/noise';
 
 import settings from '../settings';
 
-seed(Math.random());
+seed(1);
 
 /**
  *
  * STATIC SETTINGS
  *
  */
-const SONG_FILENAME = 'fox-stevenson-radar.dat';
 const MARGIN = 1;
 
+// TODO: When this number drops below 300, the occlusion starts to fail a bit,
+// you can see lines cutting into other curves :thinking-face:.
+// I should fix this, since I should only need 250 samples per row for smooth
+// curves, and a lower # will mean much faster rendering.
 const SAMPLES_PER_ROW = 500;
 const DISTANCE_BETWEEN_ROWS = 0.25;
 const NUM_ROWS = 30;
+
+// The avg. number of peaks per row depends on the `SAMPLES_PER_ROW`.
+// That value, though, is really just "print resolution", and we shouldn't
+// be changing it for cosmetic effect (unless we want to do a low-poly one or
+// something).
+// Our `PERLIN_MULTIPLIER` value ensures that we can tweak `SAMPLES_PER_ROW`
+// without chaging the appearance of the design, only the # of dots that the
+// plotter has to worry about.
+const PERLIN_RANGE_PER_ROW = 10;
 
 const PEAK_AMPLITUDE_MULTIPLIER = 0.35;
 
@@ -159,7 +171,18 @@ const takeOcclusionIntoAccount = (line, previousLines, debug = false) => {
 
 const getValue = (sampleIndex, rowIndex) => {
   // Calculate the noise value for this point in space.
-  const noiseVal = perlin2(sampleIndex / 70, rowIndex * 1.5);
+  // We need to do linear interpolation, because while we might have 50 or
+  // 500 or 5000 samples per row, we only want to use a standard perlin range
+  // of 0 to PERLIN_RANGE_PER_ROW.
+  const noiseX = normalize(
+    sampleIndex,
+    0,
+    SAMPLES_PER_ROW,
+    0,
+    PERLIN_RANGE_PER_ROW
+  );
+
+  const noiseVal = perlin2(noiseX, rowIndex * 1.5);
 
   // If we were to just return `noiseVal`, we'd have mountains all over the
   // page. Instead, though, we want to dampen the effect of the randomization,
@@ -205,6 +228,19 @@ const getValue = (sampleIndex, rowIndex) => {
   const [, heightDampingAmount] = getValuesForBezierCurve(bezierArgs);
 
   return noiseVal * heightDampingAmount;
+};
+
+const flipEverySecondLine = lines => {
+  return lines.map((line, index) => {
+    if (index % 2 !== 0) {
+      // WARNING ACK! THIS IS MUTATIVE AND BAD PRACTICE. DO NOT COPY OR YOU
+      // WILL BE FIRED
+      // A single line is an array of
+      line.reverse();
+    }
+
+    return line;
+  });
 };
 
 /**
