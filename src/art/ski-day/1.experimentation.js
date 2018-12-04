@@ -2,23 +2,22 @@
 import canvasSketch from 'canvas-sketch';
 import { renderPolylines } from 'canvas-sketch-util/penplot';
 import { clipPolylinesToBox } from 'canvas-sketch-util/geometry';
-import { checkIntersection } from 'line-intersect';
 import chunk from 'lodash/chunk';
 
 import { loadAudioData } from '../../helpers/audio.helpers';
 import {
-  createDashedLine,
   clipLinesWithMargin,
   groupPolylines,
-  getSlopeAndInterceptForLine,
   getValuesForBezierCurve,
 } from '../../helpers/line.helpers';
 import { normalize, range, compose } from '../../utils';
 import { seed, perlin2 } from '../../vendor/noise';
 
+import { occludeLineIfNecessary } from './ski-day.helpers';
+
 import settings from '../settings';
 
-seed(1);
+seed(6);
 
 /**
  *
@@ -31,7 +30,7 @@ const MARGIN = 1;
 // you can see lines cutting into other curves :thinking-face:.
 // I should fix this, since I should only need 250 samples per row for smooth
 // curves, and a lower # will mean much faster rendering.
-const SAMPLES_PER_ROW = 500;
+const SAMPLES_PER_ROW = 40;
 const DISTANCE_BETWEEN_ROWS = 0.25;
 const NUM_ROWS = 30;
 
@@ -76,98 +75,6 @@ const getSampleCoordinates = ({
     rowHeight * PEAK_AMPLITUDE_MULTIPLIER
   ) + rowOffset,
 ];
-
-const takeOcclusionIntoAccount = (line, previousLines, debug = false) => {
-  if (previousLines.length === 0) {
-    return line;
-  }
-
-  const { slope } = getSlopeAndInterceptForLine(line);
-
-  // First case: This line segment is totally below at least 1 previous line
-  // In this case, we want to return `null`. We don't want to render anything
-  // for this line.
-  const isTotallyBelow = previousLines.some(previousLine => {
-    return previousLine[0][1] < line[0][1] && previousLine[1][1] < line[1][1];
-  });
-
-  if (debug && isTotallyBelow) {
-  }
-
-  if (isTotallyBelow) {
-    return null;
-  }
-
-  // Next case: the line is partially occluded.
-  // In the case that our line goes from not-occluded to occluded, we expect to
-  // see a line with a slope above our current line's
-  // if the slope is negative, we care about the _latest_ intersection:
-  /*
-
-  \    /
-   \ /                < negative slope in front of our line
-    \                   If there are multiple, the larger `x` intersection
-     \                  value wins
-
-
-        /
-  ----/               < positive slope in front of our line
-    /                   If there are multiple, the smaller `x` intersection
-  /                     value wins.
-
-  */
-
-  let becomeOccludedAt = null;
-  let breakFreeAt = null;
-  previousLines.forEach(previousLine => {
-    const { type, point } = checkIntersection(
-      line[0][0],
-      line[0][1],
-      line[1][0],
-      line[1][1],
-      previousLine[0][0],
-      previousLine[0][1],
-      previousLine[1][0],
-      previousLine[1][1]
-    );
-
-    if (type === 'intersecting') {
-      const { slope: previousSlope } = getSlopeAndInterceptForLine(
-        previousLine
-      );
-
-      // If our current slope is greater than the previous slope, it means
-      // that our line is currently occluded and breaking free.
-      // If the current slope is < the previous, it means our line is currently
-      // free, but is about to dip behind the previous line.
-      const isBecomingOccludedByThisLine = slope > previousSlope;
-      const isBreakingFreeFromThisLine = !isBecomingOccludedByThisLine;
-
-      if (isBecomingOccludedByThisLine) {
-        if (!becomeOccludedAt || becomeOccludedAt.x > point.x) {
-          becomeOccludedAt = [point.x, point.y];
-        }
-      } else if (isBreakingFreeFromThisLine) {
-        if (!breakFreeAt || breakFreeAt.x < point.x) {
-          breakFreeAt = [point.x, point.y];
-        }
-      }
-    }
-  });
-
-  let start = line[0];
-  let end = line[1];
-
-  if (becomeOccludedAt) {
-    end = becomeOccludedAt;
-  }
-
-  if (breakFreeAt) {
-    start = breakFreeAt;
-  }
-
-  return [start, end];
-};
 
 const getValue = (sampleIndex, rowIndex) => {
   // Calculate the noise value for this point in space.
@@ -322,12 +229,7 @@ const sketch = async ({ width, height, context }) => {
           ];
         });
 
-        const occludedLine = takeOcclusionIntoAccount(
-          line,
-          previousLines,
-          rowIndex === 3
-        );
-
+        const occludedLine = occludeLineIfNecessary(line, previousLines);
         lines.push(occludedLine);
       });
     });

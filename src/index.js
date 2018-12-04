@@ -2,5 +2,5 @@
 // with `npm start`.
 
 // import './art/picture-cells';
-import './art/song-mountains';
+import './art/ski-day';
 // import './art/demo';
