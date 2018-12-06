@@ -1,7 +1,6 @@
 // @flow
 const { clipPolylinesToBox } = require('canvas-sketch-util/geometry');
 const { lerp } = require('canvas-sketch-util/math');
-const convertUnits = require('convert-units');
 
 import { range } from '../utils';
 

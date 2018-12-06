@@ -17,7 +17,7 @@ import { occludeLineIfNecessary } from './ski-day.helpers';
 
 import settings from '../settings';
 
-seed(6);
+seed(Math.random());
 
 /**
  *
@@ -30,9 +30,9 @@ const MARGIN = 1;
 // you can see lines cutting into other curves :thinking-face:.
 // I should fix this, since I should only need 250 samples per row for smooth
 // curves, and a lower # will mean much faster rendering.
-const SAMPLES_PER_ROW = 40;
-const DISTANCE_BETWEEN_ROWS = 0.25;
-const NUM_ROWS = 30;
+const SAMPLES_PER_ROW = 250;
+const DISTANCE_BETWEEN_ROWS = 0.35;
+const NUM_ROWS = 20;
 
 // The avg. number of peaks per row depends on the `SAMPLES_PER_ROW`.
 // That value, though, is really just "print resolution", and we shouldn't
@@ -54,10 +54,7 @@ const getRowOffset = (
   rowIndex,
   pageHeight,
   distanceBetweenRows = DISTANCE_BETWEEN_ROWS
-) =>
-  // TODO: This should be MARGIN * 2 isntead of 4.
-  // FInd out why lines are so far below the offset!
-  pageHeight - MARGIN * 2 - rowIndex * distanceBetweenRows;
+) => pageHeight - MARGIN * 2 - rowIndex * distanceBetweenRows;
 
 const getSampleCoordinates = ({
   value,
@@ -76,7 +73,7 @@ const getSampleCoordinates = ({
   ) + rowOffset,
 ];
 
-const getValue = (sampleIndex, rowIndex) => {
+const getValueAtPoint = (sampleIndex, rowIndex) => {
   // Calculate the noise value for this point in space.
   // We need to do linear interpolation, because while we might have 50 or
   // 500 or 5000 samples per row, we only want to use a standard perlin range
@@ -89,7 +86,16 @@ const getValue = (sampleIndex, rowIndex) => {
     PERLIN_RANGE_PER_ROW
   );
 
-  const noiseVal = perlin2(noiseX, rowIndex * 1.5);
+  const type = 'slopes'; // or 'scratches'
+
+  let noiseVal =
+    type === 'slopes'
+      ? perlin2(noiseX, rowIndex * 1.5)
+      : (Math.random() - 0.5) * 0.5;
+
+  // Different rows have different damping amounts
+  const damping = rowIndex % 2 === 0 ? 0.5 : 1;
+  noiseVal *= damping;
 
   // If we were to just return `noiseVal`, we'd have mountains all over the
   // page. Instead, though, we want to dampen the effect of the randomization,
@@ -117,16 +123,16 @@ const getValue = (sampleIndex, rowIndex) => {
   if (isInFirstHalf) {
     bezierArgs = {
       startPoint: [0, 0],
-      controlPoint1: [1, 0],
-      controlPoint2: [0, 1],
+      controlPoint1: [0.15, 0.05],
+      controlPoint2: [1, -0.1],
       endPoint: [1, 1],
       t: ratio * 2,
     };
   } else {
     bezierArgs = {
       startPoint: [0, 1],
-      controlPoint1: [1, 1],
-      controlPoint2: [0, 0],
+      controlPoint1: [0, -0.1],
+      controlPoint2: [0.85, 0.05],
       endPoint: [1, 0],
       t: normalize(ratio, 0.5, 1),
     };
@@ -135,19 +141,6 @@ const getValue = (sampleIndex, rowIndex) => {
   const [, heightDampingAmount] = getValuesForBezierCurve(bezierArgs);
 
   return noiseVal * heightDampingAmount;
-};
-
-const flipEverySecondLine = lines => {
-  return lines.map((line, index) => {
-    if (index % 2 !== 0) {
-      // WARNING ACK! THIS IS MUTATIVE AND BAD PRACTICE. DO NOT COPY OR YOU
-      // WILL BE FIRED
-      // A single line is an array of
-      line.reverse();
-    }
-
-    return line;
-  });
 };
 
 /**
@@ -169,8 +162,10 @@ const sketch = async ({ width, height, context }) => {
 
     // Generate some data!
     range(NUM_ROWS).forEach(rowIndex => {
+      let row = [];
+
       range(SAMPLES_PER_ROW).forEach(sampleIndex => {
-        const value = getValue(sampleIndex, rowIndex);
+        const value = getValueAtPoint(sampleIndex, rowIndex);
 
         const rowOffset = getRowOffset(rowIndex, height);
         const distanceBetweenSamples = (width - MARGIN * 2) / SAMPLES_PER_ROW;
@@ -187,7 +182,7 @@ const sketch = async ({ width, height, context }) => {
           rowHeight: ROW_HEIGHT,
         });
 
-        const previousValue = getValue(sampleIndex - 1, rowIndex);
+        const previousValue = getValueAtPoint(sampleIndex - 1, rowIndex);
         const previousSamplePoint = getSampleCoordinates({
           sampleIndex: sampleIndex - 1,
           value: previousValue,
@@ -213,14 +208,14 @@ const sketch = async ({ width, height, context }) => {
 
           return [
             getSampleCoordinates({
-              value: getValue(sampleIndex - 1, previousRowIndex),
+              value: getValueAtPoint(sampleIndex - 1, previousRowIndex),
               sampleIndex: sampleIndex - 1,
               distanceBetweenSamples,
               rowOffset: previousRowOffset,
               rowHeight: ROW_HEIGHT,
             }),
             getSampleCoordinates({
-              value: getValue(sampleIndex, previousRowIndex),
+              value: getValueAtPoint(sampleIndex, previousRowIndex),
               sampleIndex: sampleIndex,
               distanceBetweenSamples,
               rowOffset: previousRowOffset,
@@ -230,8 +225,10 @@ const sketch = async ({ width, height, context }) => {
         });
 
         const occludedLine = occludeLineIfNecessary(line, previousLines);
-        lines.push(occludedLine);
+        row.push(occludedLine);
       });
+
+      lines.push(...row);
     });
 
     lines = lines.filter(line => !!line);
