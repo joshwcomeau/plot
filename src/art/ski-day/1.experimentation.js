@@ -17,7 +17,8 @@ import { occludeLineIfNecessary } from './ski-day.helpers';
 
 import settings from '../settings';
 
-seed(Math.random());
+seed(415);
+// seed(401);
 
 /**
  *
@@ -94,8 +95,8 @@ const getValueAtPoint = (sampleIndex, rowIndex) => {
       : (Math.random() - 0.5) * 0.5;
 
   // Different rows have different damping amounts
-  const damping = rowIndex % 2 === 0 ? 0.5 : 1;
-  noiseVal *= damping;
+  // const damping = rowIndex % 2 === 0 ? 0.5 : 1;
+  // noiseVal *= damping;
 
   // If we were to just return `noiseVal`, we'd have mountains all over the
   // page. Instead, though, we want to dampen the effect of the randomization,
@@ -123,16 +124,16 @@ const getValueAtPoint = (sampleIndex, rowIndex) => {
   if (isInFirstHalf) {
     bezierArgs = {
       startPoint: [0, 0],
-      controlPoint1: [0.15, 0.05],
-      controlPoint2: [1, -0.1],
+      controlPoint1: [1, 0],
+      controlPoint2: [1, 1],
       endPoint: [1, 1],
       t: ratio * 2,
     };
   } else {
     bezierArgs = {
       startPoint: [0, 1],
-      controlPoint1: [0, -0.1],
-      controlPoint2: [0.85, 0.05],
+      controlPoint1: [0, 1],
+      controlPoint2: [1, 0],
       endPoint: [1, 0],
       t: normalize(ratio, 0.5, 1),
     };
@@ -140,7 +141,13 @@ const getValueAtPoint = (sampleIndex, rowIndex) => {
 
   const [, heightDampingAmount] = getValuesForBezierCurve(bezierArgs);
 
-  return noiseVal * heightDampingAmount;
+  // By default, our bezier curve damping has a relatively modest effect.
+  // If we want to truly isolate the peaks to the center of the page, we need
+  // to raise that effect exponentially.
+  // 4 seems to do a good job imitating the harsh curve I was using before.
+  const DAMPING_STRENGTH = 4;
+
+  return noiseVal * heightDampingAmount ** DAMPING_STRENGTH;
 };
 
 /**
